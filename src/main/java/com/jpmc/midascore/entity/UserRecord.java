@@ -1,19 +1,21 @@
 package com.jpmc.midascore.entity;
 
 import jakarta.persistence.*;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 public class UserRecord {
 
     @Id
     @GeneratedValue()
-    private long id;
+    private Long id;
 
     @Column(nullable = false)
     private String name;
 
     @Column(nullable = false)
-    private float balance;
+    private Float balance;
 
     protected UserRecord() {
     }

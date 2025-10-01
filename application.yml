@@ -1,0 +1,52 @@
+general:
+  kafka-topic: transaction-topic
+  kafka-group: midas-transaction-messages
+
+spring:
+  kafka:
+    # Producer configuration
+    producer:
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+    # Consumer configuration
+    consumer:
+      group-id: ${general.kafka-group}
+      auto-offset-reset: earliest  # Start from beginning of topic
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"  # Trust all packages for deserialization
+        spring.json.value.default.type: com.jpmc.midascore.foundation.Transaction
+
+    # NOTE: DO NOT set bootstrap-servers here for tests!
+    # @EmbeddedKafka automatically sets the correct port
+
+  # H2 Database configuration
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+# Logging configuration
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.springframework.kafka: INFO  # See Kafka activity
+    com.jpmc.midascore: DEBUG  # See your application logs
