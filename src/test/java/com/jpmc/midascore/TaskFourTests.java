@@ -1,5 +1,6 @@
 package com.jpmc.midascore;
 
+import com.jpmc.midascore.entity.UserRecord;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -7,6 +8,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.test.annotation.DirtiesContext;
+
+import java.util.List;
+import java.util.Objects;
 
 @SpringBootTest
 @DirtiesContext
@@ -23,6 +27,9 @@ public class TaskFourTests {
     @Autowired
     private FileLoader fileLoader;
 
+    @Autowired
+    private UserService userService;
+
     @Test
     void task_four_verifier() throws InterruptedException {
         userPopulator.populate();
@@ -31,7 +38,12 @@ public class TaskFourTests {
             kafkaProducer.send(transactionLine);
         }
         Thread.sleep(2000);
-
+        List<UserRecord> list_users = userService.getAllUsers();
+        for (UserRecord userRecord : list_users) {
+            if(Objects.equals(userRecord.getName(), "wilbur")){
+                logger.info("balance of waldorf: {}",userRecord.getBalance());
+            }
+        }
 
         logger.info("----------------------------------------------------------");
         logger.info("----------------------------------------------------------");

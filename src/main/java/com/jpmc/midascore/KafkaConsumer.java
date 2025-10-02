@@ -1,5 +1,7 @@
 package com.jpmc.midascore;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jpmc.midascore.entity.IncentiveResponse;
 import com.jpmc.midascore.entity.TransactionRecord;
 import com.jpmc.midascore.entity.UserRecord;
 import com.jpmc.midascore.foundation.Transaction;
@@ -11,6 +13,8 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.*;
+import org.springframework.web.client.RestTemplate;
 
 @Component
 public class KafkaConsumer {
@@ -18,6 +22,7 @@ public class KafkaConsumer {
 
     @Autowired
     private UserService userService;
+
     @Autowired
     private UserRepository userRepository;
 
@@ -28,17 +33,52 @@ public class KafkaConsumer {
     @Transactional
     public void listen(Transaction transaction) {
          UserRecord sender = userService.getUserById(transaction.getSenderId());
-         logger.info("ZINDAGI JHANDWA FIR BHI GHAMANDWA!");
          UserRecord receiver = userService.getUserById(transaction.getRecipientId());
+         logger.info("found both users!");
          if (sender.getBalance() >= transaction.getAmount()) {
-             sender.setBalance(sender.getBalance() - transaction.getAmount());
-             receiver.setBalance(receiver.getBalance() + transaction.getAmount());
-             userRepository.save(sender);
-             userRepository.save(receiver);
-             transactionRepository.save(
-                     new TransactionRecord(sender, receiver, transaction.getAmount())
+
+             RestTemplate rt = new RestTemplate();
+
+             HttpHeaders headers = new HttpHeaders();
+             headers.setContentType(MediaType.APPLICATION_JSON);
+
+             HttpEntity<Transaction> request = new HttpEntity<>(transaction, headers);
+
+             ResponseEntity<IncentiveResponse> resp = rt.postForEntity(
+                     "http://localhost:8080/incentive",
+                     request,
+                     IncentiveResponse.class
              );
-             logger.info("Transaction completed! Sender: {} has Amount: {} left and Receiver: {} has amount: {}.", sender.getName(), sender.getBalance(), receiver.getName(), receiver.getBalance());
+
+             Float incentives;
+             if (resp.getStatusCode().is2xxSuccessful() && resp.getBody() != null) {
+                 incentives = resp.getBody().getAmount();
+                 logger.info("Incentives = {}", incentives);
+             } else {
+                 throw new IllegalStateException("Bad response: " + resp.getStatusCode());
+             }
+
+//             ObjectMapper mapper = new ObjectMapper();
+//             logger.info("Sending to incentive API: {}", mapper.writeValueAsString(transaction));
+//             logger.info("Incentive API raw response: {}", resp.getBody());
+
+//             ObjectMapper mapper = new ObjectMapper();
+//             try {
+//                 logger.info("Sending to incentive API: {}", mapper.writeValueAsString(transaction));
+//                 logger.info("Incentive API raw response: {}", mapper.writeValueAsString(resp.getBody()));
+//             } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+//                 logger.warn("Failed to serialize for logging. txn={}, respBody={}",
+//                         transaction, resp.getBody(), e);
+//             }
+
+             sender.setBalance(sender.getBalance() - transaction.getAmount());
+             receiver.setBalance(receiver.getBalance() + transaction.getAmount() + incentives);
+
+//             Float lala = 0f;
+             transactionRepository.save(
+                     new TransactionRecord(sender, receiver, transaction.getAmount(),incentives )
+             );
+//             logger.info("Transaction completed! Sender: {} has Amount: {} left and Receiver: {} has amount: {}.", sender.getName(), sender.getBalance(), receiver.getName(), receiver.getBalance());
          } else {
              logger.warn("Sender Balance is insufficient");
          }
